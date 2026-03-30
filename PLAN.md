@@ -26,7 +26,7 @@ Build a local, fully unrestricted AI image and video generation web app. The use
 | Image-to-Video | Wan 2.2 14B I2V GGUF Q4_K_M | CogVideoX 1.5 5B FP8 | 8-14GB |
 | Prompt Enhancement | Phi-3 GGUF via llama-cpp-python | Manual prompts | CPU-only |
 
-**Model management**: ComfyUI handles loading/unloading automatically. Only one large model in VRAM at a time. 17GB/s NVMe means model swaps take <1 second.
+**Model management**: ComfyUI handles loading/unloading automatically. Only one large model in VRAM at a time. 17GB/s NVMe means model swaps take <1 second. VRAM is fully released when idle (see VRAM Management below).
 
 ## Tech Stack
 
@@ -39,6 +39,26 @@ Build a local, fully unrestricted AI image and video generation web app. The use
 - **Zustand** - state management
 - **llama-cpp-python** - local LLM prompt enhancement (CPU)
 - **Python 3.11+**, **PyTorch 2.7+** with CUDA 12.8
+
+## VRAM Management
+
+The machine is shared between this app and gaming (~10GB VRAM during sessions). VRAM must be fully released when not actively generating.
+
+**Strategy: Auto-release on idle + manual release button**
+
+- **Auto-release**: Frontend tracks idle time since last generation. After 5 minutes of inactivity, automatically calls ComfyUI's `POST /free` endpoint to unload all models from VRAM. VRAM drops to near-zero.
+- **Manual release**: "Release VRAM" button in the sidebar and Settings page. Calls `POST /free` immediately. Use before launching a game.
+- **VRAM status indicator**: Sidebar shows current GPU memory usage (via ComfyUI `GET /system_stats`). Green (< 1GB used) = safe to game. Red (model loaded) = VRAM in use.
+- **Zero-cost reload**: Models reload from NVMe in <1 second, so releasing VRAM has no meaningful penalty. The next generation simply reloads the model on demand.
+
+**Lifecycle**:
+```
+App idle (>5min) ──auto──> /free called ──> VRAM = ~0 ──> safe to game
+User clicks "Release VRAM" ──> /free called ──> VRAM = ~0 ──> safe to game
+User generates image ──> model auto-loads (<1s) ──> VRAM = model size ──> idle timer resets
+```
+
+**Why not `--novram` flag**: Running ComfyUI with `--novram` keeps models in system RAM and copies to VRAM per-generation. This adds latency to every generation. Since auto-release achieves the same goal (zero VRAM when idle) without per-generation overhead, it's the better approach.
 
 ## File Structure
 
@@ -80,7 +100,8 @@ Build a local, fully unrestricted AI image and video generation web app. The use
 │       │   ├── GenerationSettings.tsx
 │       │   ├── ImageGallery.tsx
 │       │   ├── VideoPlayer.tsx
-│       │   └── ProgressBar.tsx
+│       │   ├── ProgressBar.tsx
+│       │   └── VramIndicator.tsx     # VRAM status + release button
 │       ├── pages/
 │       │   ├── TextToImage.tsx
 │       │   ├── ImageToImage.tsx
@@ -88,7 +109,8 @@ Build a local, fully unrestricted AI image and video generation web app. The use
 │       │   └── Settings.tsx
 │       ├── hooks/
 │       │   ├── useComfyUI.ts
-│       │   └── useGeneration.ts
+│       │   ├── useGeneration.ts
+│       │   └── useVramManager.ts     # Idle timer + auto-release logic
 │       └── stores/
 │           └── generationStore.ts
 │
@@ -121,6 +143,7 @@ Build a local, fully unrestricted AI image and video generation web app. The use
 
 ### Step 3: ComfyUI API client (`frontend/src/api/comfyui.ts`)
 - REST: POST `/prompt` (queue workflow), GET `/history` (results), POST `/upload/image` (img2img input)
+- REST: POST `/free` (release all models from VRAM), GET `/system_stats` (GPU memory usage)
 - WebSocket: connect to `ws://localhost:8188/ws` for real-time progress (execution_start, progress per step, executed with output paths)
 - Workflow template system: load JSON, substitute user parameters, submit
 - Fetch generated images via `GET /view?filename={name}`
@@ -129,7 +152,10 @@ Build a local, fully unrestricted AI image and video generation web app. The use
 - Vite + React + TypeScript project
 - Tailwind CSS dark theme
 - Layout: sidebar nav (txt2img / img2img / img2vid / settings) + main content
+- VRAM status indicator in sidebar (green/red dot with memory usage)
+- "Release VRAM" button in sidebar
 - Zustand store for generation state, history, settings
+- `useVramManager` hook: polls `/system_stats` every 10s, tracks idle time since last generation, auto-calls `/free` after 5 minutes idle
 
 ### Step 5: Text-to-Image page
 - Prompt textarea + optional negative prompt
@@ -170,6 +196,8 @@ Build a local, fully unrestricted AI image and video generation web app. The use
 ### Step 10: Settings page
 - Installed models list with VRAM estimates
 - GPU memory usage display (ComfyUI system_stats API)
+- "Release VRAM" button (calls `/free`, same as sidebar button)
+- Auto-release idle timeout setting (default: 5 minutes, configurable)
 - Output folder path config
 - Purge outputs button
 - Model download links/instructions
@@ -196,6 +224,14 @@ Build a local, fully unrestricted AI image and video generation web app. The use
 
 ComfyUI auto-unloads models when switching. 17GB/s NVMe = <1s model load times.
 
+| State | VRAM Usage | Notes |
+|-------|-----------|-------|
+| App idle (>5min) | ~0 | Auto-released, safe for gaming |
+| Manual release | ~0 | Instant, safe for gaming |
+| Gaming (typical) | ~10GB | No conflict when app is idle |
+| Generating (Chroma) | ~13GB | Cannot game simultaneously |
+| Generating (SDXL) | ~8GB | Tight fit with some games |
+
 ## Verification
 
 1. **Setup**: Run `setup.bat` on Windows - installs ComfyUI, custom nodes, downloads models
@@ -206,3 +242,6 @@ ComfyUI auto-unloads models when switching. 17GB/s NVMe = <1s model load times.
 6. **Test prompt enhancer**: Toggle on, enter short prompt, verify expansion
 7. **Test privacy**: Check outputs folder is hidden, files don't appear in Windows Photos
 8. **Test CivitAI models**: Place .safetensors in ComfyUI models dir, verify it appears in frontend dropdown
+9. **Test VRAM release**: Generate an image, click "Release VRAM", verify GPU memory drops to ~0 via `nvidia-smi`
+10. **Test auto-release**: Generate an image, wait 5 minutes idle, verify GPU memory auto-releases
+11. **Test gaming coexistence**: Release VRAM, launch a game, confirm no VRAM conflicts
