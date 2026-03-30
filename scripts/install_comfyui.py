@@ -85,31 +85,31 @@ def get_python():
 
 def install_pytorch():
     """Install PyTorch with CUDA 12.8 support."""
-    pip = get_pip()
+    python = get_python()
     print("Installing PyTorch with CUDA 12.8...")
-    run([pip, "install", "--upgrade", "pip"])
-    run([pip, "install", *PYTORCH_PACKAGES, "--index-url", PYTORCH_INDEX])
+    run([python, "-m", "pip", "install", "--upgrade", "pip"])
+    run([python, "-m", "pip", "install", *PYTORCH_PACKAGES, "--index-url", PYTORCH_INDEX])
 
 
 def install_comfyui_deps():
     """Install ComfyUI's requirements."""
-    pip = get_pip()
+    python = get_python()
     req_file = COMFYUI_DIR / "requirements.txt"
     if req_file.exists():
         print("Installing ComfyUI requirements...")
-        run([pip, "install", "-r", str(req_file)])
+        run([python, "-m", "pip", "install", "-r", str(req_file)])
 
 
 def install_custom_node_deps():
     """Install requirements for each custom node."""
-    pip = get_pip()
+    python = get_python()
     custom_nodes_dir = COMFYUI_DIR / "custom_nodes"
 
     for name in CUSTOM_NODES:
         req_file = custom_nodes_dir / name / "requirements.txt"
         if req_file.exists():
             print(f"Installing requirements for {name}...")
-            run([pip, "install", "-r", str(req_file)])
+            run([python, "-m", "pip", "install", "-r", str(req_file)])
 
 
 def verify_installation():
