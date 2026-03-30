@@ -13,7 +13,7 @@ if not exist "ComfyUI\venv\Scripts\python.exe" (
 
 :: Start ComfyUI headless on port 8188
 echo Starting ComfyUI on port 8188...
-start "ComfyUI" cmd /c "ComfyUI\venv\Scripts\python.exe ComfyUI\main.py --listen 127.0.0.1 --port 8188 --preview-method auto"
+start "ComfyUI" cmd /c "ComfyUI\venv\Scripts\python.exe ComfyUI\main.py --listen 0.0.0.0 --port 8188 --preview-method auto"
 
 :: Wait for ComfyUI to be ready
 echo Waiting for ComfyUI to start...
