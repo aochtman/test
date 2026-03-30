@@ -2,143 +2,207 @@
 
 ## Context
 
-Build a local, fully unrestricted AI image and video generation web app. The user has an RTX 5080 (16GB VRAM) on Windows with fast NVMe storage. The app must support text-to-image, image-to-image, and image-to-video generation with no content filters. CivitAI community model support (SDXL/Pony checkpoints and LoRAs) is required for access to specialized NSFW models.
+Build a local, fully unrestricted AI image and video generation web app. The user has an RTX 5080 (16GB VRAM) on Windows with fast NVMe RAID0 storage (17GB/s read). The app must support text-to-image, image-to-image, and image-to-video generation with no content filters. CivitAI community model support (SDXL checkpoints and LoRAs) is required.
 
-## Architecture: Gradio + Diffusers + Local LLM
+## Architecture: ComfyUI Backend + React Frontend
 
-**Why Gradio**: Simple prompt-based UI, fast to build, supports image upload/gallery/sliders natively. No separate frontend build step.
+**ComfyUI runs headlessly** as the inference engine (port 8188). A custom React frontend provides a clean prompt-based UI (port 3000). No node editor exposed to the user.
 
-**Why not ComfyUI**: While powerful, ComfyUI is node-based and complex. The user wants a clean prompt-based interface.
+**Why ComfyUI backend**: ~15x faster than raw diffusers, battle-tested VRAM management, native GGUF quantization, NVFP4 support for Blackwell (RTX 5080), community nodes for new models within days of release.
 
-**Why not Docker**: GPU passthrough on Windows adds friction. Native Python venv is simpler and has zero GPU overhead.
+**Why React frontend**: Clean prompt-based UI without ComfyUI's node complexity. Full control over UX.
 
-**Deployment**: Code developed on dev-server (this machine), then cloned/pulled and run directly on the Windows desktop. App opens in local browser at `http://localhost:7860`.
+**Why not Docker**: GPU passthrough on Windows adds friction. Native Python venv is simpler.
+
+**Deployment**: Code developed on dev-server, then cloned and run directly on the Windows desktop. App opens in local browser at `http://localhost:3000`.
 
 ## Models
 
 | Task | Primary Model | Alternative | VRAM |
 |------|--------------|-------------|------|
-| Text-to-Image | Pony Diffusion V6 XL (SDXL) | Flux.1 Dev GGUF Q8 (uncensored fork) | 8-12GB |
-| Image-to-Image | Same as above (img2img pipeline) | — | 8-12GB |
-| Image-to-Video | Wan 2.1 (GGUF quantized) | CogVideoX 1.5 5B | 12-16GB |
-| Prompt Enhancement | Mistral 7B via llama-cpp-python | Manual prompts | CPU-only |
+| Text-to-Image | Chroma Q8 GGUF (8.9B, uncensored, 1-4 steps) | Flux.1 Dev Q8 GGUF | 12-13GB |
+| Text-to-Image | SDXL + CivitAI LoRAs (art styles, specialized) | — | 4-8GB |
+| Image-to-Image | Same models via img2img workflow | — | same |
+| Image-to-Video | Wan 2.2 14B I2V GGUF Q4_K_M | CogVideoX 1.5 5B FP8 | 8-14GB |
+| Prompt Enhancement | Phi-3 GGUF via llama-cpp-python | Manual prompts | CPU-only |
 
-**Model management**: Only one large model loaded at a time. Automatic unloading when switching between image and video generation.
+**Model management**: ComfyUI handles loading/unloading automatically. Only one large model in VRAM at a time. 17GB/s NVMe means model swaps take <1 second.
 
 ## Tech Stack
 
-- **Python 3.11+** with venv
-- **PyTorch 2.7+** with CUDA 12.8 (required for RTX 5080 / Blackwell sm_120)
-- **diffusers** (HuggingFace) - pipeline management for SDXL, Flux, img2img
-- **Gradio 5.x** - web UI
-- **llama-cpp-python** - local LLM for NSFW-safe prompt enhancement
-- **safetensors** - model loading
-- **accelerate** - memory management
-- **CivitAI model loading** - custom checkpoint/LoRA support via diffusers
+- **ComfyUI** - headless inference engine with REST + WebSocket API
+- **ComfyUI-GGUF** - GGUF quantization support
+- **ComfyUI-WanVideoWrapper** - Wan 2.2 img2vid
+- **ComfyUI-CogVideoXWrapper** - CogVideoX img2vid
+- **React + TypeScript + Vite** - frontend
+- **Tailwind CSS** - dark theme styling
+- **Zustand** - state management
+- **llama-cpp-python** - local LLM prompt enhancement (CPU)
+- **Python 3.11+**, **PyTorch 2.7+** with CUDA 12.8
 
 ## File Structure
 
 ```
 /
-├── app.py                    # Main Gradio app entry point
-├── requirements.txt          # Python dependencies
-├── setup.py                  # First-run setup script (downloads models)
-├── config.py                 # App configuration (paths, defaults)
-├── README.md                 # Setup instructions for Windows
+├── README.md
+├── setup.bat                         # Windows one-click setup
+├── start.bat                         # Windows launcher (ComfyUI + frontend)
 │
-├── core/
-│   ├── __init__.py
-│   ├── model_manager.py      # Model loading/unloading, VRAM management
-│   ├── text_to_image.py      # txt2img pipeline (SDXL, Flux, CivitAI checkpoints)
-│   ├── image_to_image.py     # img2img pipeline
-│   ├── image_to_video.py     # img2vid pipeline (Wan 2.1 / CogVideoX)
-│   └── prompt_enhancer.py    # Local LLM prompt enhancement
+├── backend/
+│   ├── requirements.txt              # Python deps for prompt enhancer
+│   ├── prompt_enhancer.py            # Local LLM prompt enhancement server
+│   ├── privacy.py                    # Windows output folder privacy setup
+│   │
+│   └── workflows/                    # Pre-built ComfyUI workflow JSONs
+│       ├── txt2img_chroma.json
+│       ├── txt2img_sdxl.json
+│       ├── img2img_chroma.json
+│       ├── img2img_sdxl.json
+│       ├── img2vid_wan22.json
+│       └── img2vid_cogvideox.json
 │
-├── ui/
-│   ├── __init__.py
-│   ├── txt2img_tab.py        # Text-to-image Gradio tab
-│   ├── img2img_tab.py        # Image-to-image Gradio tab
-│   ├── img2vid_tab.py        # Image-to-video Gradio tab
-│   └── settings_tab.py       # Model selection, paths, parameters
+├── frontend/
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── tsconfig.json
+│   ├── index.html
+│   └── src/
+│       ├── main.tsx
+│       ├── App.tsx
+│       ├── api/
+│       │   ├── comfyui.ts            # ComfyUI REST + WebSocket client
+│       │   ├── promptEnhancer.ts     # Prompt enhancer API client
+│       │   └── types.ts
+│       ├── components/
+│       │   ├── Layout.tsx
+│       │   ├── Sidebar.tsx
+│       │   ├── PromptInput.tsx
+│       │   ├── GenerationSettings.tsx
+│       │   ├── ImageGallery.tsx
+│       │   ├── VideoPlayer.tsx
+│       │   └── ProgressBar.tsx
+│       ├── pages/
+│       │   ├── TextToImage.tsx
+│       │   ├── ImageToImage.tsx
+│       │   ├── ImageToVideo.tsx
+│       │   └── Settings.tsx
+│       ├── hooks/
+│       │   ├── useComfyUI.ts
+│       │   └── useGeneration.ts
+│       └── stores/
+│           └── generationStore.ts
 │
-├── outputs/                  # Generated files (hidden from Windows)
-│   ├── images/               # Generated images
-│   └── videos/               # Generated videos
+├── scripts/
+│   ├── install_comfyui.py            # Automated ComfyUI + custom nodes setup
+│   └── download_models.py            # Model downloader with progress bars
 │
-└── models/                   # Local model storage (gitignored)
-    ├── checkpoints/          # SDXL/Pony/Flux checkpoints
-    ├── loras/                # LoRA files
-    ├── vae/                  # VAE models
-    └── llm/                  # Prompt enhancement LLM
+└── outputs/                          # Generated files (hidden from Windows)
+    ├── images/
+    └── videos/
 ```
 
 ## Implementation Steps
 
-### Step 1: Project scaffolding
-- Create file structure, `requirements.txt`, `config.py`, `.gitignore`
-- Requirements: `torch`, `torchvision`, `diffusers`, `transformers`, `accelerate`, `safetensors`, `gradio`, `llama-cpp-python`, `Pillow`, `opencv-python`
-- **Privacy setup for outputs folder**:
-  - Set Windows hidden attribute on `outputs/` folder via `attrib +h` (done in setup script)
-  - Create `outputs/desktop.ini` to exclude from Windows libraries
-  - Add `outputs/` to Windows Search indexing exclusion via registry/API
-  - The app's built-in Gradio gallery is the primary way to browse generated content
-  - All generated files saved with randomized filenames (no metadata leakage)
+### Step 1: Project scaffolding & setup scripts
+- Create file structure, `.gitignore` (exclude `outputs/`, `node_modules/`, ComfyUI models)
+- `scripts/install_comfyui.py`: clone ComfyUI, install custom nodes (ComfyUI-GGUF, ComfyUI-Manager, ComfyUI-WanVideoWrapper, ComfyUI-CogVideoXWrapper), create venv, install PyTorch 2.7+ with CUDA 12.8
+- `scripts/download_models.py`: download Chroma Q8 GGUF, T5-XXL FP8, VAE, Phi-3 GGUF via huggingface_hub
+- `setup.bat`: runs both scripts end-to-end
+- `start.bat`: launches ComfyUI headless on port 8188, then frontend on port 3000
 
-### Step 2: Model Manager (`core/model_manager.py`)
-- Singleton that tracks currently loaded model
-- `load_model(model_type, model_path)` - loads a model, unloads previous
-- `unload_model()` - frees VRAM via `torch.cuda.empty_cache()`
-- Support loading CivitAI safetensors checkpoints via `StableDiffusionXLPipeline.from_single_file()`
-- Support loading LoRAs via `pipe.load_lora_weights()`
+### Step 2: ComfyUI workflow JSONs
+- `txt2img_chroma.json`: UNet Loader (GGUF) -> T5-XXL -> KSampler (4 steps) -> VAE Decode -> Save Image
+- `txt2img_sdxl.json`: SDXL checkpoint loader -> CLIP -> KSampler -> VAE Decode -> Save Image (with LoRA loader node)
+- `img2img_chroma.json`: same as txt2img + Load Image -> VAE Encode -> KSampler with denoise param
+- `img2img_sdxl.json`: same pattern for SDXL
+- `img2vid_wan22.json`: Wan 2.2 GGUF loader -> source image -> KSampler -> video output
+- `img2vid_cogvideox.json`: CogVideoX loader -> source image -> video output
+- All workflows use parameterized values (prompt, seed, steps, etc.) that the frontend substitutes before submission
 
-### Step 3: Text-to-Image (`core/text_to_image.py`)
-- SDXL pipeline with CivitAI checkpoint support
-- Flux pipeline with GGUF quantized model support
-- Parameters: prompt, negative prompt, steps, CFG scale, seed, resolution, sampler, LoRA selection
-- Batch generation (1-4 images)
+### Step 3: ComfyUI API client (`frontend/src/api/comfyui.ts`)
+- REST: POST `/prompt` (queue workflow), GET `/history` (results), POST `/upload/image` (img2img input)
+- WebSocket: connect to `ws://localhost:8188/ws` for real-time progress (execution_start, progress per step, executed with output paths)
+- Workflow template system: load JSON, substitute user parameters, submit
+- Fetch generated images via `GET /view?filename={name}`
 
-### Step 4: Image-to-Image (`core/image_to_image.py`)
-- Uses same model as txt2img but with `StableDiffusionXLImg2ImgPipeline`
-- Additional params: input image, denoising strength
-- Support inpainting mask (optional)
+### Step 4: Frontend scaffolding
+- Vite + React + TypeScript project
+- Tailwind CSS dark theme
+- Layout: sidebar nav (txt2img / img2img / img2vid / settings) + main content
+- Zustand store for generation state, history, settings
 
-### Step 5: Image-to-Video (`core/image_to_video.py`)
-- Wan 2.1 pipeline for img2vid
-- Parameters: input image, prompt, duration, FPS, motion strength
-- Output as MP4
+### Step 5: Text-to-Image page
+- Prompt textarea + optional negative prompt
+- Model selector: Chroma, SDXL + checkpoint dropdown (scans ComfyUI models dir)
+- LoRA selector (for SDXL)
+- Settings: resolution, steps, CFG scale, seed, batch size (1-4)
+- Generate button -> submit workflow -> progress bar -> image gallery
+- "Enhance Prompt" button (calls prompt enhancer)
 
-### Step 6: Prompt Enhancer (`core/prompt_enhancer.py`)
-- Load Mistral 7B GGUF via llama-cpp-python (CPU-only, no VRAM usage)
-- System prompt tuned for expanding short prompts into detailed image generation prompts
-- No content filtering - fully unrestricted
-- Optional - user can toggle on/off
+### Step 6: Image-to-Image page
+- Image upload (drag-and-drop)
+- Same prompt/model/settings as txt2img
+- Denoise strength slider (0.0-1.0) - key control
+- "Use from gallery" button to load a previously generated image
 
-### Step 7: Gradio UI (`ui/` + `app.py`)
-- **Tab 1 - Text to Image**: Prompt box, negative prompt, model selector (dropdown of checkpoints in models/checkpoints/), LoRA selector, generation params (steps, CFG, seed, resolution, sampler), generate button, image gallery
-- **Tab 2 - Image to Image**: Same as above + image upload + denoising strength slider
-- **Tab 3 - Image to Video**: Image upload (or use last generated image), prompt, duration/FPS/motion sliders, generate button, video player
-- **Tab 4 - Settings**: Model paths, download models, GPU info display
+### Step 7: Image-to-Video page
+- Source image upload or select from gallery
+- Model selector: Wan 2.2 / CogVideoX
+- Settings: duration, FPS, resolution, motion prompt
+- Generate -> progress bar -> video player
+- Download as MP4
 
-### Step 8: Output privacy (`core/privacy.py`)
-- On first run (Windows): set hidden attribute on outputs folder (`ctypes` call to `SetFileAttributesW`)
-- Write `desktop.ini` in outputs folder to prevent Windows from treating it as a media library
-- Strip EXIF/metadata from generated images before saving
-- Use UUID-based filenames (no sequential numbering)
-- Provide a "purge all outputs" button in settings tab
-- Display warning in UI: "Use the built-in gallery to browse outputs. Opening files with Windows Photos will add them to the Photos library. Use IrfanView or XnView for safe external viewing."
+### Step 8: Prompt enhancer (`backend/prompt_enhancer.py`)
+- FastAPI micro-service on port 8189
+- Loads Phi-3 GGUF via llama-cpp-python on CPU (no VRAM usage)
+- POST `/enhance` with short prompt -> returns detailed expanded prompt
+- System prompt tuned for image generation descriptions, unrestricted
+- Toggle on/off in frontend
 
-### Step 9: Setup script (`setup.py`)
-- Downloads base models (Pony Diffusion V6 XL, Mistral 7B GGUF)
-- Validates CUDA/PyTorch compatibility
-- Creates model directories
-- Runs privacy setup for outputs folder
+### Step 9: Output privacy (`backend/privacy.py`)
+- Run on first setup (Windows): set hidden attribute on outputs folder via `ctypes.windll.kernel32.SetFileAttributesW`
+- Write `desktop.ini` to exclude from Windows libraries
+- Strip EXIF metadata from saved images
+- UUID-based filenames
+- "Purge all outputs" button in Settings page
+- Warning in UI: "Use the built-in gallery. Opening files with Windows Photos will add them to the Photos library."
+
+### Step 10: Settings page
+- Installed models list with VRAM estimates
+- GPU memory usage display (ComfyUI system_stats API)
+- Output folder path config
+- Purge outputs button
+- Model download links/instructions
+
+## ComfyUI API Integration Pattern
+
+```
+1. Frontend loads workflow JSON template
+2. Substitutes user values (prompt, model, settings) into JSON
+3. POST to http://localhost:8188/prompt with {prompt: workflow, client_id: uuid}
+4. Connect WebSocket ws://localhost:8188/ws?clientId={uuid}
+5. Receive progress events: execution_start -> executing (per node) -> progress (per step) -> executed
+6. Fetch result: GET http://localhost:8188/view?filename={output_name}
+```
+
+## VRAM Budget (RTX 5080 16GB)
+
+| Model | VRAM | Headroom |
+|-------|------|----------|
+| Chroma Q8 GGUF | ~12-13GB | 3-4GB for VAE + text encoder |
+| SDXL + LoRA | ~6-8GB | 8-10GB spare |
+| Wan 2.2 14B Q4_K_M | ~8-10GB | 6-8GB with VAE tiling |
+| CogVideoX 1.5 5B FP8 | ~12-14GB | 2-4GB |
+
+ComfyUI auto-unloads models when switching. 17GB/s NVMe = <1s model load times.
 
 ## Verification
 
-1. **Setup**: Run `pip install -r requirements.txt` then `python setup.py` to download models
-2. **Launch**: Run `python app.py`, opens browser at `http://localhost:7860`
-3. **Test txt2img**: Enter a prompt, select Pony Diffusion checkpoint, generate
-4. **Test img2img**: Upload an image, adjust denoising strength, generate
-5. **Test img2vid**: Use a generated image, create a short video clip
-6. **Test prompt enhancer**: Toggle on, enter a short prompt, verify it expands
-7. **Test CivitAI models**: Download a .safetensors checkpoint, place in models/checkpoints/, verify it appears in dropdown
+1. **Setup**: Run `setup.bat` on Windows - installs ComfyUI, custom nodes, downloads models
+2. **Launch**: Run `start.bat` - ComfyUI starts on 8188, frontend on 3000
+3. **Test txt2img**: Open `http://localhost:3000`, select Chroma, enter prompt, generate
+4. **Test img2img**: Upload image, set denoise to 0.7, modify with prompt
+5. **Test img2vid**: Use generated image, create video with Wan 2.2
+6. **Test prompt enhancer**: Toggle on, enter short prompt, verify expansion
+7. **Test privacy**: Check outputs folder is hidden, files don't appear in Windows Photos
+8. **Test CivitAI models**: Place .safetensors in ComfyUI models dir, verify it appears in frontend dropdown
