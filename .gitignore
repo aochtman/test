@@ -1,0 +1,35 @@
+# Outputs
+outputs/
+
+# ComfyUI (installed locally on main PC)
+ComfyUI/
+
+# Node
+node_modules/
+dist/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Models (too large for git)
+*.safetensors
+*.gguf
+*.bin
+*.pt
+*.pth
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# Env
+.env
+.env.local

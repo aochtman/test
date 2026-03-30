@@ -14,7 +14,7 @@ Build a local, fully unrestricted AI image and video generation web app. The use
 
 **Why not Docker**: GPU passthrough on Windows adds friction. Native Python venv is simpler.
 
-**Deployment**: Code developed on dev-server, then cloned and run directly on the Windows desktop. App opens in local browser at `http://localhost:3000`.
+**Deployment**: Code developed on the dev server (Linux), pushed to GitHub, then pulled and run on the main PC (Windows, RTX 5080). App opens in local browser at `http://localhost:3000`.
 
 ## Models
 
