@@ -1,4 +1,4 @@
-const ENHANCER_URL = "http://127.0.0.1:8189";
+const ENHANCER_URL = "/api/enhancer";
 
 export interface EnhanceResponse {
   enhanced: string;

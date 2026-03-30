@@ -7,8 +7,8 @@ import type {
   VramStatus,
 } from "./types";
 
-const COMFYUI_URL = "http://127.0.0.1:8188";
-const COMFYUI_WS = "ws://127.0.0.1:8188/ws";
+const COMFYUI_URL = "/api/comfyui";
+const COMFYUI_WS = `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/api/comfyui-ws/ws`;
 
 // ── REST API ──
 
