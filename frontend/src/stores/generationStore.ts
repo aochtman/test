@@ -59,8 +59,8 @@ interface GenerationStore {
 }
 
 const DEFAULT_SETTINGS: GenerationSettings = {
-  prompt: "",
-  negativePrompt: "",
+  prompt: "marie rose, 1girl, blonde hair, twintails, masterpiece, best quality",
+  negativePrompt: "lowres, bad anatomy, bad hands, text, error, worst quality, low quality, blurry",
   width: 1024,
   height: 1024,
   steps: 4,
