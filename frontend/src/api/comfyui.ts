@@ -16,14 +16,16 @@ export async function queuePrompt(
   workflow: ComfyUIWorkflow,
   clientId: string
 ): Promise<QueuePromptResponse> {
+  const body = JSON.stringify({ prompt: workflow, client_id: clientId });
+  console.log("Submitting workflow:", body.substring(0, 500));
   const res = await fetch(`${COMFYUI_URL}/prompt`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt: workflow, client_id: clientId }),
+    body,
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Failed to queue prompt: ${err}`);
+    throw new Error(`Failed to queue prompt (${res.status}): ${err}`);
   }
   return res.json();
 }

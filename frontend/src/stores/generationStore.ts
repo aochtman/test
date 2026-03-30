@@ -100,7 +100,15 @@ export const useGenerationStore = create<GenerationStore>((set) => ({
   availableCheckpoints: [],
   availableLoras: [],
   setAvailableModels: (checkpoints, loras) =>
-    set({ availableCheckpoints: checkpoints, availableLoras: loras }),
+    set((state) => ({
+      availableCheckpoints: checkpoints,
+      availableLoras: loras,
+      settings: {
+        ...state.settings,
+        checkpoint: state.settings.checkpoint || checkpoints[0] || "",
+        loraName: state.settings.loraName || "",
+      },
+    })),
 
   // Generation state
   progress: null,
