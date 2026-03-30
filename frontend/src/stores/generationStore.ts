@@ -88,8 +88,10 @@ export const useGenerationStore = create<GenerationStore>((set) => ({
   setModelType: (modelType) => {
     const defaults: Partial<GenerationSettings> =
       modelType === "chroma"
-        ? { steps: 4, cfg: 1.0 }
-        : { steps: 25, cfg: 7.0 };
+        ? { steps: 4, cfg: 1.0, width: 1024, height: 1024 }
+        : modelType === "sd15"
+        ? { steps: 25, cfg: 7.0, width: 512, height: 768 }
+        : { steps: 25, cfg: 7.0, width: 1024, height: 1024 };
     set((state) => ({
       modelType,
       settings: { ...state.settings, ...defaults },

@@ -25,7 +25,7 @@ export default function TextToImage() {
         {/* Left: Controls */}
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-dark-800 rounded-lg p-4 border border-dark-700">
-            <PromptInput showNegative={modelType === "sdxl"} />
+            <PromptInput showNegative={modelType !== "chroma"} />
           </div>
 
           <div className="bg-dark-800 rounded-lg p-4 border border-dark-700">

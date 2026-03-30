@@ -92,7 +92,7 @@ export function useComfyUI() {
         // Pick the right workflow
         let workflowName: string;
         if (mode === "txt2img") {
-          workflowName = modelType === "chroma" ? "txt2img_chroma" : "txt2img_sdxl";
+          workflowName = modelType === "chroma" ? "txt2img_chroma" : modelType === "sd15" ? "txt2img_sd15" : "txt2img_sdxl";
         } else if (mode === "img2img") {
           workflowName = modelType === "chroma" ? "img2img_chroma" : "img2img_sdxl";
         } else {

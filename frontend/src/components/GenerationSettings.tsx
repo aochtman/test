@@ -48,6 +48,16 @@ export default function GenerationSettings({
               Chroma
             </button>
             <button
+              onClick={() => setModelType("sd15")}
+              className={`flex-1 px-3 py-2 text-sm rounded-lg transition-colors ${
+                modelType === "sd15"
+                  ? "bg-blue-600 text-white"
+                  : "bg-dark-700 text-dark-300 hover:bg-dark-600"
+              }`}
+            >
+              SD 1.5
+            </button>
+            <button
               onClick={() => setModelType("sdxl")}
               className={`flex-1 px-3 py-2 text-sm rounded-lg transition-colors ${
                 modelType === "sdxl"
@@ -61,8 +71,8 @@ export default function GenerationSettings({
         </div>
       )}
 
-      {/* SDXL Checkpoint */}
-      {showModelSelect && modelType === "sdxl" && (
+      {/* Checkpoint + LoRA (SD 1.5 & SDXL) */}
+      {showModelSelect && (modelType === "sdxl" || modelType === "sd15") && (
         <>
           <div>
             <label className="text-sm font-medium text-dark-200 mb-1.5 block">Checkpoint</label>

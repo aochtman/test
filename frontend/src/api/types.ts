@@ -66,7 +66,7 @@ export type ComfyUIWsMessage =
 
 // Generation types
 export type GenerationMode = "txt2img" | "img2img" | "img2vid";
-export type ModelType = "chroma" | "sdxl";
+export type ModelType = "chroma" | "sdxl" | "sd15";
 export type VideoModel = "wan22" | "cogvideox";
 
 export interface GenerationSettings {
