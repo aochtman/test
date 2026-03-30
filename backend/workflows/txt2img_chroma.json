@@ -2,7 +2,7 @@
   "1": {
     "class_type": "UNETLoaderGGUF",
     "inputs": {
-      "unet_name": "chroma-q8_0.gguf"
+      "unet_name": "Chroma1-Base-Q8_0.gguf"
     }
   },
   "2": {

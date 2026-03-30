@@ -15,8 +15,8 @@ COMFYUI_DIR = PROJECT_ROOT / "ComfyUI"
 MODELS = [
     # Chroma Q8 GGUF - primary txt2img model
     {
-        "repo": "city96/Chroma-Q8_0-GGUF",
-        "file": "chroma-q8_0.gguf",
+        "repo": "QuantStack/Chroma1-Base-GGUF",
+        "file": "Chroma1-Base-Q8_0.gguf",
         "dest": "diffusion_models",
         "desc": "Chroma Q8 GGUF (8.9B, ~9GB)",
     },
@@ -29,7 +29,7 @@ MODELS = [
     },
     # Flux VAE
     {
-        "repo": "black-forest-labs/FLUX.1-schnell",
+        "repo": "camenduru/FLUX.1-dev-ungated",
         "file": "ae.safetensors",
         "dest": "vae",
         "desc": "Flux VAE (~168MB)",
@@ -44,7 +44,7 @@ MODELS = [
     # Wan 2.2 CLIP vision
     {
         "repo": "Comfy-Org/Wan_2.1_ComfyUI_repackaged",
-        "file": "split_files/clip_vision/cv_wan2.1_image.safetensors",
+        "file": "split_files/clip_vision/clip_vision_h.safetensors",
         "dest": "clip_vision",
         "desc": "Wan 2.1 CLIP Vision (~1GB)",
     },

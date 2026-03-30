@@ -29,7 +29,7 @@
   "5": {
     "class_type": "CLIPVisionLoader",
     "inputs": {
-      "clip_name": "cv_wan2.1_image.safetensors"
+      "clip_name": "clip_vision_h.safetensors"
     }
   },
   "6": {
