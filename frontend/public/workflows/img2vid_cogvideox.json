@@ -1,0 +1,66 @@
+{
+  "1": {
+    "class_type": "DownloadAndLoadCogVideoModel",
+    "inputs": {
+      "model": "THUDM/CogVideoX1.5-5B-I2V",
+      "precision": "fp8_e4m3fn",
+      "enable_sequential_cpu_offload": false
+    }
+  },
+  "2": {
+    "class_type": "CogVideoTextEncode",
+    "inputs": {
+      "pipeline": ["1", 0],
+      "prompt": "{{prompt}}",
+      "negative_prompt": ""
+    }
+  },
+  "3": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "{{input_image}}"
+    }
+  },
+  "4": {
+    "class_type": "CogVideoImageEncode",
+    "inputs": {
+      "pipeline": ["1", 0],
+      "image": ["3", 0]
+    }
+  },
+  "5": {
+    "class_type": "CogVideoSampler",
+    "inputs": {
+      "pipeline": ["1", 0],
+      "positive": ["2", 0],
+      "negative": ["2", 1],
+      "image_cond_latents": ["4", 0],
+      "num_frames": "{{num_frames}}",
+      "height": "{{height}}",
+      "width": "{{width}}",
+      "steps": "{{steps}}",
+      "cfg": "{{cfg}}",
+      "seed": "{{seed}}",
+      "scheduler": "DPM"
+    }
+  },
+  "6": {
+    "class_type": "CogVideoDecode",
+    "inputs": {
+      "pipeline": ["1", 0],
+      "samples": ["5", 0],
+      "enable_vae_tiling": true
+    }
+  },
+  "7": {
+    "class_type": "SaveAnimatedWEBP",
+    "inputs": {
+      "images": ["6", 0],
+      "filename_prefix": "cogvideo_i2v",
+      "fps": "{{fps}}",
+      "lossless": false,
+      "quality": 90,
+      "method": "default"
+    }
+  }
+}
