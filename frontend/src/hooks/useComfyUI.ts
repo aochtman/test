@@ -135,11 +135,23 @@ export function useComfyUI() {
           fps: settings.fps,
         };
 
-        const finalWorkflow = applyWorkflowParams(workflow, params);
-        await queuePrompt(finalWorkflow, clientId.current);
+        let finalWorkflow = applyWorkflowParams(workflow, params);
+
+        // Remove LoRA loader node if no LoRA selected, rewire model+clip directly
+        if (!settings.loraName && finalWorkflow["2"]?.class_type === "LoraLoader") {
+          // Rewire: anything referencing node 2 output should reference node 1
+          const json = JSON.stringify(finalWorkflow);
+          const rewired = json.replaceAll('["2", 0]', '["1", 0]').replaceAll('["2", 1]', '["1", 1]');
+          finalWorkflow = JSON.parse(rewired);
+          delete finalWorkflow["2"];
+        }
+
+        const result = await queuePrompt(finalWorkflow, clientId.current);
+        console.log("Queued prompt:", result.prompt_id);
       } catch (err) {
         console.error("Generation failed:", err);
-        store.setIsGenerating(false);
+        alert(`Generation failed: ${err instanceof Error ? err.message : err}`);
+        useGenerationStore.getState().setIsGenerating(false);
       }
     },
     []
