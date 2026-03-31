@@ -23,6 +23,10 @@ curl -s http://127.0.0.1:8188/system_stats >nul 2>&1
 if errorlevel 1 goto wait_comfyui
 echo ComfyUI is ready.
 
+:: Start VRAM auto-release manager
+echo Starting VRAM manager (auto-releases after 5 min idle)...
+start "VRAM Manager" cmd /min /c "python backend\vram_manager.py"
+
 :: Start prompt enhancer if model exists
 if exist "backend\models\prompt_enhancer\Phi-3-mini-4k-instruct-q4.gguf" (
     echo Starting prompt enhancer on port 8189...
